@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Telegram.Bot.Args;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
@@ -32,14 +34,15 @@ namespace SmartHome
             return Keyboard;
         }
 
-        public static bool Compare(Update update, string text)
+        public static bool Compare(MessageEventArgs arg, string text)
         {
-            return update.Message.Text.ToLower().StartsWith(text);
+            return arg.Message.Text.ToLower().StartsWith(text);
         }
 
         public static void CW(String Text, CWType type = CWType.INFO)
         {
             Console.WriteLine($"[{DateTime.Now.ToLongTimeString()} {type.ToString()}]: {Text}");
+            Debug.WriteLine($"[{DateTime.Now.ToLongTimeString()} {type.ToString()}]: {Text}");
         }
 
         public enum CWType

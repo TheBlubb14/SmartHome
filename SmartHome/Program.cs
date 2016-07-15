@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Args;
 using static SmartHome.SmartHomeDatabaseDataSet;
 using static SmartHome.Utility;
 using static SmartHome.Database;
@@ -22,43 +23,38 @@ namespace SmartHome
         {
             while (true)
             {
-                //try
-                //{
-                    Run().Wait();
-                //}
-                //catch (Exception ex)
-                //{
-                //    CW(ex.ToString(), CWType.WARNING);
-                //    Thread.Sleep(1000);
-                //}
-            }
-        }
-
-        private static async Task Run()
-        {
-            bot = new TelegramBotClient(Properties.Settings.Default["TelegramApiKey"].ToString());
-            CW("Server wurde gestartet", CWType.INFO);
-
-            int offset = 0;
-            while (true)
-            {
-                var updates = await bot.GetUpdatesAsync(offset);
-                foreach (Update update in updates)
+                try
                 {
-                    ProcessUpdate(update);
-                    offset = update.Id + 1;
+                    Run();
+                    Console.ReadLine();
+                    bot?.StopReceiving();
+                }
+                catch (Exception ex)
+                {
+                    CW(ex.ToString(), CWType.WARNING);
+                    Thread.Sleep(1000);
                 }
             }
         }
 
-
-        private static void ProcessUpdate(Update update)
+        private static void Run()
         {
-            UsersRow currentUser = ProcessUser(update);
-            string text = update.Message.Text;
+            bot = new TelegramBotClient(Properties.Settings.Default["TelegramApiKey"].ToString());
+            CW("Server wurde gestartet", CWType.INFO);
+
+            bot.MessageReceived += Bot_MessageReceived;
+            bot.StartReceiving();
+        }
+
+
+        private static void Bot_MessageReceived(object sender, MessageEventArgs e)
+        {
+
+            UsersRow currentUser = ProcessUser(e);
+            string text = e.Message.Text;
             // TODO: Hier Programm Ablauf fortsetzen
 
-            CW(update.Message.Text, CWType.MESSAGE);
+            CW(e.Message.Text, CWType.MESSAGE);
 
             List<string> currentUserStatus = GetStatusFromUser(currentUser);
             StatusRow[] currentUserStatusRow = GetStatusRowFromUser(currentUser);
@@ -66,7 +62,7 @@ namespace SmartHome
             StatusRow currentStatus;
 
             #region Status
-            if ((currentStatus = StatusExists(currentUserStatusRow, "s_aus")) != null && Compare(update, "ja"))
+            if ((currentStatus = StatusExists(currentUserStatusRow, "s_aus")) != null && Compare(e, "ja"))
             {
                 CW("Removing status..", CWType.INFO);
                 DeleteStatusFromUser(currentStatus);
@@ -76,7 +72,7 @@ namespace SmartHome
                 Environment.Exit(0);
             }
 
-            else if ((currentStatus = StatusExists(currentUserStatusRow, "s_licht")) != null && (Compare(update, "an") || Compare(update, "aus")))
+            else if ((currentStatus = StatusExists(currentUserStatusRow, "s_licht")) != null && (Compare(e, "an") || Compare(e, "aus")))
             {
                 CW("Removing status..", CWType.INFO);
                 DeleteStatusFromUser(currentStatus);
@@ -84,7 +80,7 @@ namespace SmartHome
 
                 ObjectsRow currentObject = GetObjectByName("o_licht");
 
-                if (Compare(update, "an"))
+                if (Compare(e, "an"))
                 {
                     currentObject.Status = "an";
                 }
@@ -104,14 +100,14 @@ namespace SmartHome
             RemoveRemainingStatus(currentUser);
 
             #region Method
-            if (Compare(update, "/aus"))
+            if (Compare(e, "/aus"))
             {
                 bot.SendTextMessageAsync(currentUser.UserID, "herunterfahren ? <ja>");
 
                 InsertNewStatus(currentUser, "s_aus");
             }
 
-            else if (Compare(update, "/licht"))
+            else if (Compare(e, "/licht"))
             {
                 ObjectsRow currentObject = GetObjectByName("o_licht");
 
@@ -128,18 +124,19 @@ namespace SmartHome
                 }
             }
 
-            else if (Compare(update, "/gruppe"))
+            else if (Compare(e, "/gruppe"))
             {
                 bot.SendTextMessageAsync(currentUser.UserID, GetGroupNameFromUser(currentUser));
             }
 
-            else if (Compare(update, "/zeit"))
+            else if (Compare(e, "/zeit"))
             {
                 bot.SendTextMessageAsync(currentUser.UserID,
                     $"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
                 CW($"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
             }
             #endregion
+
         }
 
         private static StatusRow StatusExists(StatusRow[] currentStatus, string expectedStatus)

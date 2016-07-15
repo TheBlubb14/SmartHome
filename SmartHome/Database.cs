@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Telegram.Bot.Args;
 using static SmartHome.SmartHomeDatabaseDataSet;
 
 namespace SmartHome
@@ -18,21 +19,21 @@ namespace SmartHome
             return currentUser != null;
         }
 
-        public static UsersRow ProcessUser(Telegram.Bot.Types.Update update)
+        public static UsersRow ProcessUser(MessageEventArgs arg)
         {
-            if (!CheckUserExisting(update.Message.Chat.Id.ToString()))
+            if (!CheckUserExisting(arg.Message.Chat.Id.ToString()))
             {
                 InsertNewUser
                     (
-                        update.Message.Chat.Id.ToString(),
-                        update.Message.Chat.FirstName,
-                        update.Message.Chat.LastName,
+                        arg.Message.Chat.Id.ToString(),
+                        arg.Message.Chat.FirstName,
+                        arg.Message.Chat.LastName,
                         DateTime.UtcNow.ToString()
                     );
-                Utility.CW($"Added new user with id ({update.Message.Chat.Id})");
+                Utility.CW($"Added new user with id ({arg.Message.Chat.Id})");
             }
 
-            return GetUsers().Where(x => x.UserID == update.Message.Chat.Id.ToString()).FirstOrDefault();
+            return GetUsers().Where(x => x.UserID == arg.Message.Chat.Id.ToString()).FirstOrDefault();
         }
 
         public static int InsertNewUser(String UserID, String FirstName, String LastName, String FirstJoined, int Group = 0)
