@@ -12,12 +12,14 @@ using Telegram.Bot.Args;
 using static SmartHome.SmartHomeDatabaseDataSet;
 using static SmartHome.Utility;
 using static SmartHome.Database;
+using System.Reflection;
 
 namespace SmartHome
 {
     class Program
     {
         private static TelegramBotClient bot;
+
 
         static void Main(string[] args)
         {
@@ -26,7 +28,6 @@ namespace SmartHome
                 try
                 {
                     Run();
-                    Console.ReadLine();
                     bot?.StopReceiving();
                 }
                 catch (Exception ex)
@@ -40,113 +41,129 @@ namespace SmartHome
         private static void Run()
         {
             bot = new TelegramBotClient(Properties.Settings.Default["TelegramApiKey"].ToString());
-            CW("Server wurde gestartet", CWType.INFO);
+            CW("Server online..", CWType.INFO);
 
             bot.MessageReceived += Bot_MessageReceived;
             bot.StartReceiving();
+            Console.ReadLine();
         }
-
 
         private static void Bot_MessageReceived(object sender, MessageEventArgs e)
         {
-
             UsersRow currentUser = ProcessUser(e);
             string text = e.Message.Text;
-            // TODO: Hier Programm Ablauf fortsetzen
+            // TODO: continue program
 
-            CW(e.Message.Text, CWType.MESSAGE);
+            CW(text, CWType.MESSAGE);
 
-            List<string> currentUserStatus = GetStatusFromUser(currentUser);
-            StatusRow[] currentUserStatusRow = GetStatusRowFromUser(currentUser);
+            List<Func<dynamic, dynamic>> methods = getAllMethodsForUser(currentUser);
 
-            StatusRow currentStatus;
+            List<StatusRow> currentUserStatusRow = GetStatusRowFromUser(currentUser);
+
+            // call dynamic method for each userstatus
+            foreach (Func<dynamic, dynamic> method in methods)
+            {
+                if (method == null)
+                    continue;
+
+                // Creating parameter for dynamic methods
+                dynamic obj = new object[] { currentUser, e};
+                method(obj);
+            }
+
 
             #region Status
-            if ((currentStatus = StatusExists(currentUserStatusRow, "s_aus")) != null && Compare(e, "ja"))
-            {
-                CW("Removing status..", CWType.INFO);
-                DeleteStatusFromUser(currentStatus);
-                CW("Status removed..", CWType.INFO);
+            //if (StatusExists(currentUserStatusRow, "s_aus").Item1 && Compare(e, "ja"))
+            //if ((currentStatus = StatusExists(currentUserStatusRow, "s_aus")) != null && Compare(e, "ja"))
+            //{
+            //    CW("Removing status..", CWType.INFO);
+            //    DeleteStatusFromUser(StatusExists(currentUserStatusRow, "s_aus"));
+            //    CW("Status removed..", CWType.INFO);
 
-                CW("System geht aus", CWType.WARNING);
-                Environment.Exit(0);
-            }
+            //    CW("System geht aus", CWType.WARNING);
+            //    Environment.Exit(0);
+            //}
 
-            else if ((currentStatus = StatusExists(currentUserStatusRow, "s_licht")) != null && (Compare(e, "an") || Compare(e, "aus")))
-            {
-                CW("Removing status..", CWType.INFO);
-                DeleteStatusFromUser(currentStatus);
-                CW("Status removed..", CWType.INFO);
+            //else if ((currentStatus = StatusExists(currentUserStatusRow, "s_licht")) != null && (Compare(e, "an") || Compare(e, "aus")))
+            //{
+            //    CW("Removing status..", CWType.INFO);
+            //    DeleteStatusFromUser(currentStatus);
+            //    CW("Status removed..", CWType.INFO);
 
-                ObjectsRow currentObject = GetObjectByName("o_licht");
+            //    ObjectsRow currentObject = GetObjectByName("o_licht");
 
-                if (Compare(e, "an"))
-                {
-                    currentObject.Status = "an";
-                }
-                else
-                {
-                    currentObject.Status = "aus";
-                }
+            //    if (Compare(e, "an"))
+            //    {
+            //        currentObject.Status = "an";
+            //    }
+            //    else
+            //    {
+            //        currentObject.Status = "aus";
+            //    }
 
-                UpdateObject(currentObject);
+            //    UpdateObject(currentObject);
 
-                CW("Licht ist " + currentObject.Status, CWType.INFO);
-            }
+            //    CW("Licht ist " + currentObject.Status, CWType.INFO);
+            //}
 
             #endregion
 
-            // Remove remaining Status, except perma status
+            // Remove remaining status, except perma status
             RemoveRemainingStatus(currentUser);
 
             #region Method
-            if (Compare(e, "/aus"))
-            {
-                bot.SendTextMessageAsync(currentUser.UserID, "herunterfahren ? <ja>");
+            // TODO: check if retrieved command is in list of commands .. then process them with the user rights
 
-                InsertNewStatus(currentUser, "s_aus");
+            if (Compare(e, "/off"))
+            {
+                bot.SendTextMessageAsync(currentUser.UserID, "shutdown system ? <yes>");
+
+                InsertNewStatus(currentUser, "off");
             }
 
-            else if (Compare(e, "/licht"))
-            {
-                ObjectsRow currentObject = GetObjectByName("o_licht");
+            //else if (Compare(e, "/licht"))
+            //{
+            //    ObjectsRow currentObject = GetObjectByName("o_licht");
 
-                if (currentObject != null)
-                {
-                    bot.SendTextMessageAsync(currentUser.UserID, "Licht  ist aktuell " + currentObject.Status, false, false, 0, GetTelegramKeyBoard(new List<string>() { "an", "aus" }));
-                    InsertNewStatus(currentUser, "s_licht");
-                }
-                else
-                {
-                    bot.SendTextMessageAsync(currentUser.UserID, "Licht wurde neu erstellt", false, false, 0, GetTelegramKeyBoard(new List<string>() { "an", "aus" }));
-                    InsertNewObject("o_licht", "aus");
-                    InsertNewStatus(currentUser, "s_licht");
-                }
-            }
+            //    if (currentObject != null)
+            //    {
+            //        bot.SendTextMessageAsync(currentUser.UserID, "Licht  ist aktuell " + currentObject.Status, false, false, 0, GetTelegramKeyBoard(new List<string>() { "an", "aus" }));
+            //        InsertNewStatus(currentUser, "light");
+            //    }
+            //    else
+            //    {
+            //        bot.SendTextMessageAsync(currentUser.UserID, "Licht wurde neu erstellt", false, false, 0, GetTelegramKeyBoard(new List<string>() { "an", "aus" }));
+            //        InsertNewObject("o_licht", "aus");
+            //        InsertNewStatus(currentUser, "light");
+            //    }
+            //}
 
-            else if (Compare(e, "/gruppe"))
-            {
-                bot.SendTextMessageAsync(currentUser.UserID, GetGroupNameFromUser(currentUser));
-            }
+            //else if (Compare(e, "/gruppe"))
+            //{
+            //    bot.SendTextMessageAsync(currentUser.UserID, GetGroupNameFromUser(currentUser));
+            //}
 
-            else if (Compare(e, "/zeit"))
-            {
-                bot.SendTextMessageAsync(currentUser.UserID,
-                    $"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
-                CW($"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
-            }
+            //else if (Compare(e, "/zeit"))
+            //{
+            //    bot.SendTextMessageAsync(currentUser.UserID,
+            //        $"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
+            //    CW($"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
+            //}
             #endregion
 
         }
 
-        private static StatusRow StatusExists(StatusRow[] currentStatus, string expectedStatus)
+        public static StatusRow StatusExists(List<StatusRow> currentStatus, string expectedStatus)
         {
             return currentStatus.Where(x => x.Status == expectedStatus).FirstOrDefault();
+
+            //IEnumerable<StatusRow> status = currentStatus.Where(x => x.Status == expectedStatus);
+            //return status.ToArray<StatusRow>();
         }
 
-        private static void RemoveRemainingStatus(UsersRow currentUser)
+        public static void RemoveRemainingStatus(UsersRow currentUser)
         {
-            StatusRow[] remainingStatus = GetStatusRowFromUser(currentUser);
+            List<StatusRow> remainingStatus = GetStatusRowFromUser(currentUser);
 
             foreach (StatusRow status in remainingStatus)
             {

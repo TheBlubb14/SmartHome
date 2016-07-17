@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Telegram.Bot.Args;
 using static SmartHome.SmartHomeDatabaseDataSet;
+using static SmartHome.Utility;
+
 
 namespace SmartHome
 {
@@ -14,7 +16,7 @@ namespace SmartHome
         #region Users
         public static bool CheckUserExisting(String UserID)
         {
-            UsersRow currentUser = GetUsers().Where(x => x.UserID == UserID).FirstOrDefault();
+            UsersRow currentUser = GetUsers()?.Where(x => x.UserID == UserID).FirstOrDefault();
 
             return currentUser != null;
         }
@@ -66,6 +68,11 @@ namespace SmartHome
 
                 return usersDataTable;
             }
+            catch (System.Data.SqlClient.SqlException)
+            {
+                CW("IP wurde nicht freigegeben", CWType.WARNING);
+                return new UsersDataTable();
+            }
             catch (Exception)
             {
                 return null;
@@ -113,6 +120,11 @@ namespace SmartHome
 
                 return statusDataTable;
             }
+            catch (System.Data.SqlClient.SqlException)
+            {
+                CW("IP wurde nicht freigegeben", CWType.WARNING);
+                return new StatusDataTable();
+            }
             catch (Exception)
             {
                 return null;
@@ -132,9 +144,9 @@ namespace SmartHome
             return status;
         }
 
-        public static StatusRow[] GetStatusRowFromUser(UsersRow currentUser)
+        public static List<StatusRow> GetStatusRowFromUser(UsersRow currentUser)
         {
-            return GetStatus().Where(x => x.UserID == currentUser.UserID).ToArray();
+            return GetStatus().Where(x => x.UserID == currentUser.UserID).ToList<StatusRow>();
         }
 
         public static int InsertNewStatus(UsersRow currentUser, string status, bool perma = false)
