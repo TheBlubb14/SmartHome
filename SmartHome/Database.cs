@@ -21,8 +21,11 @@ namespace SmartHome
             return currentUser != null;
         }
 
-        public static UsersRow ProcessUser(MessageEventArgs arg)
+        public static async Task<UsersRow> ProcessUser(MessageEventArgs arg)
         {
+            // dirty
+            await Task.Delay(1);
+
             if (!CheckUserExisting(arg.Message.Chat.Id.ToString()))
             {
                 InsertNewUser

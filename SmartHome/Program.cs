@@ -21,9 +21,6 @@ namespace SmartHome
     {
         private static TelegramBotClient bot;
 
-        // Dic -> MethodenID(int) Tuple -> UserGruppe(string), Typ Parameter 1(type), Typ Parameter 2(type), Func<dynamic, dynamic> 
-        Dictionary<int, Tuple<string, Type, Type, Func<MethodParameter, MethodParameter>>> dic = new Dictionary<int, Tuple<string, Type, Type, Func<MethodParameter, MethodParameter>>>();
-
         static void Main(string[] args)
         {
             while (true)
@@ -51,12 +48,17 @@ namespace SmartHome
             Console.ReadLine();
         }
 
-        private static void Bot_OnMessage(object sender, MessageEventArgs e)
+        private static async void Bot_OnMessage(object sender, MessageEventArgs e)
         {
-            UsersRow currentUser = ProcessUser(e);
+            Task.Run(() => ProcessMessageAsync(e));
+        }
+
+        private static async Task ProcessMessageAsync(MessageEventArgs e)
+        {
+            UsersRow currentUser = await ProcessUser(e);
             // TODO: continue program
 
-            CW(e.Message.Text, CWType.MESSAGE);
+            CW(e.Message.Text + "task: " + Thread.CurrentThread.ManagedThreadId, CWType.MESSAGE);
 
             #region process userstatus
             List<Func<MethodParameter, MethodParameter>> methods = getAllMethodsForUser(currentUser);
@@ -79,11 +81,12 @@ namespace SmartHome
 
             if (Compare(e, "/off"))
             {
-                bot.SendTextMessageAsync(currentUser.UserID, "shutdown system ? <yes>");
+                await bot.SendTextMessageAsync(currentUser.UserID, "shutdown system ? <yes>");
 
                 InsertNewStatus(currentUser, "off");
             }
             #endregion
+
         }
 
         public static StatusRow StatusExists(List<StatusRow> currentStatus, string expectedStatus)
