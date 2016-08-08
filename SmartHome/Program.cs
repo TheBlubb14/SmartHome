@@ -13,6 +13,7 @@ using static SmartHome.SmartHomeDatabaseDataSet;
 using static SmartHome.Utility;
 using static SmartHome.Database;
 using System.Reflection;
+using System.Runtime.Remoting;
 
 namespace SmartHome
 {
@@ -20,6 +21,8 @@ namespace SmartHome
     {
         private static TelegramBotClient bot;
 
+        // Dic -> MethodenID(int) Tuple -> UserGruppe(string), Typ Parameter 1(type), Typ Parameter 2(type), Func<dynamic, dynamic> 
+        Dictionary<int, Tuple<string, Type, Type, Func<MethodParameter, MethodParameter>>> dic = new Dictionary<int, Tuple<string, Type, Type, Func<MethodParameter, MethodParameter>>>();
 
         static void Main(string[] args)
         {
@@ -43,69 +46,29 @@ namespace SmartHome
             bot = new TelegramBotClient(Properties.Settings.Default["TelegramApiKey"].ToString());
             CW("Server online..", CWType.INFO);
 
-            bot.MessageReceived += Bot_MessageReceived;
+            bot.OnMessage += Bot_OnMessage;
             bot.StartReceiving();
             Console.ReadLine();
         }
 
-        private static void Bot_MessageReceived(object sender, MessageEventArgs e)
+        private static void Bot_OnMessage(object sender, MessageEventArgs e)
         {
             UsersRow currentUser = ProcessUser(e);
-            string text = e.Message.Text;
             // TODO: continue program
 
-            CW(text, CWType.MESSAGE);
+            CW(e.Message.Text, CWType.MESSAGE);
 
-            List<Func<dynamic, dynamic>> methods = getAllMethodsForUser(currentUser);
+            #region process userstatus
+            List<Func<MethodParameter, MethodParameter>> methods = getAllMethodsForUser(currentUser);
 
-            List<StatusRow> currentUserStatusRow = GetStatusRowFromUser(currentUser);
-
-            // call dynamic method for each userstatus
-            foreach (Func<dynamic, dynamic> method in methods)
+            // call method for each userstatus
+            foreach (var method in methods)
             {
                 if (method == null)
                     continue;
 
-                // Creating parameter for dynamic methods
-                dynamic obj = new object[] { currentUser, e};
-                method(obj);
+                MethodParameter result = method(new MethodParameter() { UsersRow = currentUser, MessageEventArgs = e });
             }
-
-
-            #region Status
-            //if (StatusExists(currentUserStatusRow, "s_aus").Item1 && Compare(e, "ja"))
-            //if ((currentStatus = StatusExists(currentUserStatusRow, "s_aus")) != null && Compare(e, "ja"))
-            //{
-            //    CW("Removing status..", CWType.INFO);
-            //    DeleteStatusFromUser(StatusExists(currentUserStatusRow, "s_aus"));
-            //    CW("Status removed..", CWType.INFO);
-
-            //    CW("System geht aus", CWType.WARNING);
-            //    Environment.Exit(0);
-            //}
-
-            //else if ((currentStatus = StatusExists(currentUserStatusRow, "s_licht")) != null && (Compare(e, "an") || Compare(e, "aus")))
-            //{
-            //    CW("Removing status..", CWType.INFO);
-            //    DeleteStatusFromUser(currentStatus);
-            //    CW("Status removed..", CWType.INFO);
-
-            //    ObjectsRow currentObject = GetObjectByName("o_licht");
-
-            //    if (Compare(e, "an"))
-            //    {
-            //        currentObject.Status = "an";
-            //    }
-            //    else
-            //    {
-            //        currentObject.Status = "aus";
-            //    }
-
-            //    UpdateObject(currentObject);
-
-            //    CW("Licht ist " + currentObject.Status, CWType.INFO);
-            //}
-
             #endregion
 
             // Remove remaining status, except perma status
@@ -120,37 +83,7 @@ namespace SmartHome
 
                 InsertNewStatus(currentUser, "off");
             }
-
-            //else if (Compare(e, "/licht"))
-            //{
-            //    ObjectsRow currentObject = GetObjectByName("o_licht");
-
-            //    if (currentObject != null)
-            //    {
-            //        bot.SendTextMessageAsync(currentUser.UserID, "Licht  ist aktuell " + currentObject.Status, false, false, 0, GetTelegramKeyBoard(new List<string>() { "an", "aus" }));
-            //        InsertNewStatus(currentUser, "light");
-            //    }
-            //    else
-            //    {
-            //        bot.SendTextMessageAsync(currentUser.UserID, "Licht wurde neu erstellt", false, false, 0, GetTelegramKeyBoard(new List<string>() { "an", "aus" }));
-            //        InsertNewObject("o_licht", "aus");
-            //        InsertNewStatus(currentUser, "light");
-            //    }
-            //}
-
-            //else if (Compare(e, "/gruppe"))
-            //{
-            //    bot.SendTextMessageAsync(currentUser.UserID, GetGroupNameFromUser(currentUser));
-            //}
-
-            //else if (Compare(e, "/zeit"))
-            //{
-            //    bot.SendTextMessageAsync(currentUser.UserID,
-            //        $"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
-            //    CW($"Die aktuelle Zeit: {DateTime.Now.ToShortTimeString()}");
-            //}
             #endregion
-
         }
 
         public static StatusRow StatusExists(List<StatusRow> currentStatus, string expectedStatus)

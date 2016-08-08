@@ -146,7 +146,7 @@ namespace SmartHome
 
         public static List<StatusRow> GetStatusRowFromUser(UsersRow currentUser)
         {
-            return GetStatus().Where(x => x.UserID == currentUser.UserID).ToList<StatusRow>();
+            return GetStatus().Where(x => x.UserID == currentUser.UserID).ToList();
         }
 
         public static int InsertNewStatus(UsersRow currentUser, string status, bool perma = false)
@@ -286,5 +286,3 @@ namespace SmartHome
         #endregion
     }
 }
-
-
